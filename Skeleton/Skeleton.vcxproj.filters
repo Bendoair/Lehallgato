@@ -26,5 +26,14 @@
     <ClInclude Include="framework.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="freeglut.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="glut.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Libs\glew-1.13.0\include\GL\glew.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

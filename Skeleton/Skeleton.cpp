@@ -58,6 +58,90 @@ struct Sphere : public Intersectable {
 	}
 };
 
+struct Triangle :Intersectable{
+	vec3 r1, r2, r3;
+	vec3 norm;
+
+	Triangle(vec3 ia, vec3 ib, vec3 ic, Material* mat) {
+		r1 = ia; r2 = ib; r3 = ic;
+		norm = normalize((r2-r1)*(r3-r1));
+		material = mat;
+	}
+
+
+	Hit intersect(const Ray& ray){
+		Hit hit;
+		float t = dot((r1 - ray.start), norm) / dot(ray.dir, norm);
+		vec3 p = ray.start + ray.dir * t;
+		if (dot(cross((r2 - r1), (p - r1)), norm) > 0 && dot(cross((r3 - r2), (p - r2)), norm) > 0 && dot(cross((r1 - r3), (p - r3)), norm) > 0) {
+			hit.position = p;
+			hit.normal = norm;
+			hit.material = material;
+		}
+		return hit;
+	}
+};
+
+struct Side :Intersectable{
+	vec3 a, b, c, d;
+	vec3 norm;
+
+	Side() {
+		a =b=c=d= vec3(0, 0, 0);
+		norm = vec3(0, 0, 0);
+	}
+	Side(vec3 a1, vec3 b1, vec3 c1, vec3 d1, Material* mat) {
+		material = mat;
+		a = a1; b = b1; c = c1; d = d1;
+		norm = normalize((b - a) * (c - a));
+	}
+	Hit intersect(const Ray& ray) {
+		Hit hit;
+		Triangle topside(a, b, c, material);
+		Triangle botside(b, c, d, material);
+		Hit h1 = topside.intersect(ray);
+		Hit h2 = botside.intersect(ray);
+		if (h1.t > 0) {
+			hit = h1;
+		}
+		else if (h2.t > 0) {
+			hit = h2;
+		}
+		return hit;
+	}
+};
+
+struct Cube :Intersectable{
+	Side sides[6];
+
+	Cube(vec3 r1, vec3 r2, vec3 r3, vec3 r4, vec3 r5, vec3 r6, vec3 r7, vec3 r8, Material* mat) {
+		material = mat;
+		//top
+		sides[0] = Side(r1, r2, r3, r4, mat);
+		//back
+		sides[1] = Side(r1, r2, r5, r6, mat);
+		//left
+		sides[2] = Side(r1, r4, r5, r8, mat);
+		//right
+		sides[3] = Side(r2, r3, r6, r7, mat);
+		//bottom
+		sides[4] = Side(r5, r6, r7, r8, mat);
+		//front
+		sides[5] = Side(r4, r3, r8, r7, mat);
+	}
+	Hit intersect(const Ray& ray) {
+		Hit hit = sides[0].intersect(ray);
+		for (int i = 0; i < 6; i++) {
+			Hit h1 = sides[i].intersect(ray);
+			if (h1.t > 0 && h1.t < hit.t) {
+				hit = h1;
+			}
+		}
+		return hit;
+	}
+
+};
+
 class Camera {
 	vec3 eye, lookat, right, up;
 public:
@@ -105,8 +189,9 @@ public:
 
 		vec3 kd(0.3f, 0.2f, 0.1f), ks(2, 2, 2);
 		Material* material = new Material(kd, ks, 50);
-		for (int i = 0; i < 500; i++)
-			objects.push_back(new Sphere(vec3(rnd() - 0.5f, rnd() - 0.5f, rnd() - 0.5f), rnd() * 0.1f, material));
+		Cube* c = new Cube(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(0.0f, 1.0f, 0.0f), 
+			vec3(0.0f, 1.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f), vec3(1.0f, 0.0f, 1.0f), vec3(1.0f, 1.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f), material);
+		objects.push_back(c);
 	}
 
 	void render(std::vector<vec4>& image) {
