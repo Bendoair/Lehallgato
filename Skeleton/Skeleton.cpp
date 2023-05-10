@@ -68,12 +68,18 @@ struct Triangle :Intersectable{
 		material = mat;
 	}
 
+	Triangle() {
+		r1 = r2 = r3 = norm = vec3(0, 0, 0);
+	}
+
 
 	Hit intersect(const Ray& ray){
 		Hit hit;
 		float t = dot((r1 - ray.start), norm) / dot(ray.dir, norm);
 		vec3 p = ray.start + ray.dir * t;
-		if (dot(cross((r2 - r1), (p - r1)), norm) > 0 && dot(cross((r3 - r2), (p - r2)), norm) > 0 && dot(cross((r1 - r3), (p - r3)), norm) > 0) {
+		if (dot(cross((r2 - r1), (p - r1)), norm) > 0 
+			&& dot(cross((r3 - r2), (p - r2)), norm) > 0 
+			&& dot(cross((r1 - r3), (p - r3)), norm) > 0) {
 			hit.position = p;
 			hit.normal = norm;
 			hit.material = material;
@@ -112,26 +118,58 @@ struct Side :Intersectable{
 };
 
 struct Cube :Intersectable{
-	Side sides[6];
+	Triangle sides[12];
 
 	Cube(vec3 r1, vec3 r2, vec3 r3, vec3 r4, vec3 r5, vec3 r6, vec3 r7, vec3 r8, Material* mat) {
 		material = mat;
-		//top
-		sides[0] = Side(r1, r2, r3, r4, mat);
-		//back
-		sides[1] = Side(r1, r2, r5, r6, mat);
-		//left
-		sides[2] = Side(r1, r4, r5, r8, mat);
-		//right
-		sides[3] = Side(r2, r3, r6, r7, mat);
-		//bottom
-		sides[4] = Side(r5, r6, r7, r8, mat);
-		//front
-		sides[5] = Side(r4, r3, r8, r7, mat);
+		////top
+		//sides[0] = Side(r1, r2, r3, r4, mat);
+		////back
+		//sides[1] = Side(r1, r2, r5, r6, mat);
+		////left
+		//sides[2] = Side(r1, r4, r5, r8, mat);
+		////right
+		//sides[3] = Side(r2, r3, r6, r7, mat);
+		////bottom
+		//sides[4] = Side(r5, r6, r7, r8, mat);
+		////front
+		//sides[5] = Side(r4, r3, r8, r7, mat);
+
+		//f  1//2  7//2  5//2
+		sides[0] = Triangle(r1, r7, r5, mat);
+		//f  1//2  3//2  7//2 
+		sides[1] = Triangle(r1, r3, r7, mat);
+		//f  1//6  4//6  3//6 
+		sides[2] = Triangle(r1, r4, r3, mat);
+		//f  1//6  2//6  4//6 
+		sides[3] = Triangle(r1, r2, r4, mat);
+		//f  3//3  8//3  7//3
+		sides[4] = Triangle(r3, r8, r7, mat);
+		//f  3//3  4//3  8//3 
+		sides[5] = Triangle(r3, r4, r8, mat);
+		//f  5//5  7//5  8//5 
+		sides[6] = Triangle(r5, r7, r8, mat);
+		//f  5//5  8//5  6//5 
+		sides[7] = Triangle(r5, r8, r6, mat);
+		//f  1//4  5//4  6//4 
+		sides[8] = Triangle(r1, r5, r6, mat);
+		//f  1//4  6//4  2//4 
+		sides[9] = Triangle(r1, r6, r2, mat);
+		//f  2//1  6//1  8//1 
+		sides[10] = Triangle(r2, r6, r8, mat);
+		//f  2//1  8//1  4//1 
+		sides[11] = Triangle(r2, r8, r4, mat);
+
 	}
+	Cube(Material* mat) {
+		Cube(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(0.0f, 1.0f, 0.0f),
+			vec3(0.0f, 1.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f), vec3(1.0f, 0.0f, 1.0f), vec3(1.0f, 1.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f), mat);
+
+	}
+
 	Hit intersect(const Ray& ray) {
 		Hit hit = sides[0].intersect(ray);
-		for (int i = 0; i < 6; i++) {
+		for (int i = 0; i < 12; i++) {
 			Hit h1 = sides[i].intersect(ray);
 			if (h1.t > 0 && h1.t < hit.t) {
 				hit = h1;
@@ -179,7 +217,7 @@ class Scene {
 	vec3 La;
 public:
 	void build() {
-		vec3 eye = vec3(0, 0, 2), vup = vec3(0, 1, 0), lookat = vec3(0, 0, 0);
+		vec3 eye = vec3(1.5, 1, .5), vup = vec3(0, 1, 0), lookat = vec3(0, 0, .5);
 		float fov = 45 * M_PI / 180;
 		camera.set(eye, lookat, vup, fov);
 
@@ -220,20 +258,18 @@ public:
 	}
 
 	vec3 trace(Ray ray, int depth = 0) {
-		Hit hit = firstIntersect(ray);
-		if (hit.t < 0) return La;
-		vec3 outRadiance = hit.material->ka * La;
-		for (Light* light : lights) {
-			Ray shadowRay(hit.position + hit.normal * epsilon, light->direction);
-			float cosTheta = dot(hit.normal, light->direction);
-			if (cosTheta > 0 && !shadowIntersect(shadowRay)) {	// shadow computation
-				outRadiance = outRadiance + light->Le * hit.material->kd * cosTheta;
-				vec3 halfway = normalize(-ray.dir + light->direction);
-				float cosDelta = dot(hit.normal, halfway);
-				if (cosDelta > 0) outRadiance = outRadiance + light->Le * hit.material->ks * powf(cosDelta, hit.material->shininess);
-			}
+		//Original deleted, can be found in the 'minimal raytracing program'
+		Hit firstHit = firstIntersect(ray);
+		if (firstHit.t>0){
+			float L = 0.2 * (1 + dot(firstHit.normal, ray.dir));
+			printf("%f\n", L);
+			return vec3(L, L, L);
 		}
-		return outRadiance;
+		else {
+			return La;
+		}
+		
+		
 	}
 };
 
