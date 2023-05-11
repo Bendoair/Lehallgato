@@ -62,8 +62,8 @@ struct Triangle :Intersectable {
 	vec3 r1, r2, r3;
 	vec3 norm;
 	boolean reverse;
-	
-	Triangle(vec3 ia, vec3 ib, vec3 ic, Material* mat = new Material(vec3 (0.3f, 0.2f, 0.1f), vec3(2, 2, 2), 50), boolean _reverse = false) {
+
+	Triangle(vec3 ia, vec3 ib, vec3 ic, Material* mat = new Material(vec3(0.3f, 0.2f, 0.1f), vec3(2, 2, 2), 50), boolean _reverse = false) {
 		r1 = ia; r2 = ib; r3 = ic;
 		norm = normalize(cross((r2 - r1), (r3 - r1)));
 		reverse = _reverse;
@@ -72,6 +72,8 @@ struct Triangle :Intersectable {
 
 	Triangle() {
 		r1 = r2 = r3 = norm = vec3(0, 0, 0);
+		material = new Material(vec3(0.3f, 0.2f, 0.1f), vec3(2, 2, 2), 50);
+		reverse = false;
 	}
 
 
@@ -111,7 +113,7 @@ struct Cube :Intersectable {
 		material = mat;
 
 		//f  1//2  7//2  5//2 BOTTOM
-		sides[0] = Triangle(r1, r7, r5, mat,true);
+		sides[0] = Triangle(r1, r7, r5, mat, true);
 		//f  1//2  3//2  7//2 
 		sides[1] = Triangle(r1, r3, r7, mat, true);
 		//f  1//6  4//6  3//6 LEFT SIDE
@@ -155,10 +157,100 @@ struct Cube :Intersectable {
 
 };
 
+struct TriObject :Intersectable {
+	std::vector<Triangle> sides;
+	
+	TriObject(std::vector<vec3> const vertices, std::vector<vec3> const sideurs) {
+		for (vec3 siddefs : sideurs) {
+			sides.push_back(Triangle(vertices[(int)siddefs.x], vertices[(int)siddefs.y], vertices[(int)siddefs.z]));
+		}
+	}
+
+	Hit intersect(const Ray& ray ) {
+		Hit hit;
+		for (Triangle tri : sides) {
+			Hit h1 = tri.intersect(ray);
+			if (h1.t > 0 && (h1.t < hit.t || hit.t < 0)) {
+				hit = h1;
+			}
+		}
+		return hit;
+		
+	}
+	//TODO
+	//first multiply then move, add to vertecies, etc
+	static TriObject* getObject(std::string const objFile, vec3 offset = vec3(0,0,0), float ratio) {
+		std::vector<std::string> lines;
+		std::string currLine;
+		for (int i = 0; i < objFile.size(); i++) {
+			if (objFile[i] == '\n') {
+				lines.push_back(currLine);
+				currLine = "";
+			}
+			else {
+				currLine = currLine + objFile[i];
+			}
+		}
+		std::vector<vec3> vertices;
+		std::vector<vec3> sideurs;
+		for (std::string line : lines) {
+			char id;
+			vec3 data;
+			sscanf(line.c_str(), "%c %f %f %f", &id, &data.x, &data.y, &data.z);
+			if (id == 'v') {
+				vertices.push_back(data);
+			}
+			else if (id == 'f') {
+				sideurs.push_back(vec3(data.x-1, data.y-1, data.z-1));
+			}
+		}
+
+		return new TriObject(vertices, sideurs);
+
+		
+	}
+
+};
+
+//Icosaheder file
+const char* IcosaObjFile = R"(v  0  -0.525731  0.850651
+v  0.850651  0  0.525731
+v  0.850651  0 - 0.525731
+v - 0.850651  0 - 0.525731
+v - 0.850651  0  0.525731
+v - 0.525731  0.850651  0
+v  0.525731  0.850651  0
+v  0.525731 - 0.850651  0
+v - 0.525731 - 0.850651  0
+v  0 - 0.525731 - 0.850651
+v  0  0.525731 - 0.850651
+v  0  0.525731  0.850651
+
+f  2  3  7
+f  2  8  3
+f  4  5  6
+f  5  4  9
+f  7  6  12
+f  6  7  11
+f  10  11  3
+f  11  10  4
+f  8  9  10
+f  9  8  1
+f  12  1  2
+f  1  12  5
+f  7  3  11
+f  2  7  12
+f  4  6  11
+f  6  5  12
+f  3  8  10
+f  8  2  1
+f  4  10  9
+f  5  9  1)";
+
 
 struct Icosahedron :Intersectable { //D20
 	Triangle sides[20];
-	Icosahedron(Material* mat) {
+	Icosahedron(Material* mat, vec3 eltol, float ratio) {
 		material = mat;
 		vec3 v1 = vec3(0.0f, -0.525731, 0.850651);
 		vec3 v2 = vec3(0.850651, 0.0f, 0.525731);
@@ -173,27 +265,40 @@ struct Icosahedron :Intersectable { //D20
 		vec3 v11 = vec3(0.0f, 0.525731, -0.850651);
 		vec3 v12 = vec3(0.0f, 0.525731, 0.850651);
 
-		sides[0] = Triangle(v2,v3,v7,mat);
-		sides[1] = Triangle(v2,v8,v3,mat);
-		sides[2] = Triangle(v4,v5,v6, mat);
-		sides[3] = Triangle(v5,v4,v9, mat);
-		sides[4] = Triangle(v7,v6,v12, mat);
-		sides[5] = Triangle(v6,v7,v11, mat);
+		v1 = (v1 + eltol) * ratio;
+		v2 = (v2 + eltol) * ratio;
+		v3 = (v3 + eltol) * ratio;
+		v4 = (v4 + eltol) * ratio;
+		v5 = (v5 + eltol) * ratio;
+		v6 = (v6 + eltol) * ratio;
+		v7 = (v7 + eltol) * ratio;
+		v8 = (v8 + eltol) * ratio;
+		v9 = (v9 + eltol) * ratio;
+		v10 = (v10 + eltol) * ratio;
+		v11 = (v11 + eltol) * ratio;
+		v12 = (v12 + eltol) * ratio;
+
+		sides[0] = Triangle(v2, v3, v7, mat);
+		sides[1] = Triangle(v2, v8, v3, mat);
+		sides[2] = Triangle(v4, v5, v6, mat);
+		sides[3] = Triangle(v5, v4, v9, mat);
+		sides[4] = Triangle(v7, v6, v12, mat);
+		sides[5] = Triangle(v6, v7, v11, mat);
 		sides[6] = Triangle(v10, v11, v3, mat);
-		sides[7] = Triangle(v11,v10,v4, mat);
-		sides[8] = Triangle(v8,v9,v10, mat);
+		sides[7] = Triangle(v11, v10, v4, mat);
+		sides[8] = Triangle(v8, v9, v10, mat);
 		sides[9] = Triangle(v9, v8, v1, mat);
-		sides[10] = Triangle(v12, v1,v5, mat);
-		sides[11] = Triangle(v1,v12,v5, mat);
-		sides[12] = Triangle(v7,v3,v11, mat);
-		sides[13] = Triangle(v2,v7,v12, mat);
-		sides[14] = Triangle(v4,v6,v11, mat);
-		sides[15] = Triangle(v6,v5,v12, mat);
-		sides[16] = Triangle(v3,v8,v10, mat);
-		sides[17] = Triangle(v8,v2,v1, mat);
-		sides[18] = Triangle(v4,v10,v9, mat);
-		sides[19] = Triangle(v5,v9,v1, mat);
-		
+		sides[10] = Triangle(v12, v1, v5, mat);
+		sides[11] = Triangle(v1, v12, v5, mat);
+		sides[12] = Triangle(v7, v3, v11, mat);
+		sides[13] = Triangle(v2, v7, v12, mat);
+		sides[14] = Triangle(v4, v6, v11, mat);
+		sides[15] = Triangle(v6, v5, v12, mat);
+		sides[16] = Triangle(v3, v8, v10, mat);
+		sides[17] = Triangle(v8, v2, v1, mat);
+		sides[18] = Triangle(v4, v10, v9, mat);
+		sides[19] = Triangle(v5, v9, v1, mat);
+
 	}
 	Hit intersect(const Ray& ray) {
 		Hit hit = sides[0].intersect(ray);
@@ -343,7 +448,7 @@ public:
 		objects.push_back(ddface36);
 	}
 	void build() {
-		vec3 eye = vec3(3, 2.5, .5), vup = vec3(0, 0, 1), lookat = vec3(0, 0, .5);
+		vec3 eye = vec3(2, 1.5, .5), vup = vec3(0, 0, 1), lookat = vec3(0, 0, .5);
 		float fov = 45 * M_PI / 180;
 		camera.set(eye, lookat, vup, fov);
 
@@ -363,13 +468,9 @@ public:
 		vec3 v8 = vec3(1.0f, 1.0f, 1.0f);
 		Cube* cub = new Cube(v1, v2, v3, v4, v5, v6, v7, v8, material);
 		objects.push_back(cub);
-		/*vec3 a = vec3(0, 0, 0);
-		vec3 b = vec3(0, 0, .5);
-		vec3 c = vec3(0, .5, 0);
-		Triangle* tr = new Triangle(vec3(0, 0, 0), vec3(0, 0, 0.5), vec3(0, 0.5, 0), material);
-		objects.push_back(tr);*/
-		Icosahedron* Ica = new Icosahedron(material);
-		//objects.push_back(Ica);
+		//Icosahedron* Ica = new Icosahedron(material,vec3(2,3, 0.850651), 0.25);
+		TriObject* Ica = TriObject::getObject(IcosaObjFile);
+		objects.push_back(Ica);
 		pushDodecahedron();
 	}
 
