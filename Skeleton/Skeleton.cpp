@@ -58,13 +58,13 @@ struct Sphere : public Intersectable {
 	}
 };
 
-struct Triangle :Intersectable{
+struct Triangle :Intersectable {
 	vec3 r1, r2, r3;
 	vec3 norm;
 
 	Triangle(vec3 ia, vec3 ib, vec3 ic, Material* mat) {
 		r1 = ia; r2 = ib; r3 = ic;
-		norm = normalize((r2-r1)*(r3-r1));
+		norm = normalize(cross((r2 - r1), (r3 - r1)));
 		material = mat;
 	}
 
@@ -73,27 +73,30 @@ struct Triangle :Intersectable{
 	}
 
 
-	Hit intersect(const Ray& ray){
+	Hit intersect(const Ray& ray) {
 		Hit hit;
 		float t = dot((r1 - ray.start), norm) / dot(ray.dir, norm);
 		vec3 p = ray.start + ray.dir * t;
-		if (dot(cross((r2 - r1), (p - r1)), norm) > 0 
-			&& dot(cross((r3 - r2), (p - r2)), norm) > 0 
+		if (dot(cross((r2 - r1), (p - r1)), norm) > 0
+			&& dot(cross((r3 - r2), (p - r2)), norm) > 0
 			&& dot(cross((r1 - r3), (p - r3)), norm) > 0) {
+			//printf("lefutott a triangle if \n");
 			hit.position = p;
 			hit.normal = norm;
 			hit.material = material;
+			hit.t = t;
 		}
+
 		return hit;
 	}
 };
 
-struct Side :Intersectable{
+struct Side :Intersectable {
 	vec3 a, b, c, d;
 	vec3 norm;
 
 	Side() {
-		a =b=c=d= vec3(0, 0, 0);
+		a = b = c = d = vec3(0, 0, 0);
 		norm = vec3(0, 0, 0);
 	}
 	Side(vec3 a1, vec3 b1, vec3 c1, vec3 d1, Material* mat) {
@@ -117,33 +120,21 @@ struct Side :Intersectable{
 	}
 };
 
-struct Cube :Intersectable{
+struct Cube :Intersectable {
 	Triangle sides[12];
 
 	Cube(vec3 r1, vec3 r2, vec3 r3, vec3 r4, vec3 r5, vec3 r6, vec3 r7, vec3 r8, Material* mat) {
 		material = mat;
-		////top
-		//sides[0] = Side(r1, r2, r3, r4, mat);
-		////back
-		//sides[1] = Side(r1, r2, r5, r6, mat);
-		////left
-		//sides[2] = Side(r1, r4, r5, r8, mat);
-		////right
-		//sides[3] = Side(r2, r3, r6, r7, mat);
-		////bottom
-		//sides[4] = Side(r5, r6, r7, r8, mat);
-		////front
-		//sides[5] = Side(r4, r3, r8, r7, mat);
 
-		//f  1//2  7//2  5//2
+		//f  1//2  7//2  5//2 BOTTOM
 		sides[0] = Triangle(r1, r7, r5, mat);
 		//f  1//2  3//2  7//2 
 		sides[1] = Triangle(r1, r3, r7, mat);
-		//f  1//6  4//6  3//6 
+		//f  1//6  4//6  3//6 LEFT SIDE
 		sides[2] = Triangle(r1, r4, r3, mat);
 		//f  1//6  2//6  4//6 
 		sides[3] = Triangle(r1, r2, r4, mat);
-		//f  3//3  8//3  7//3
+		//f  3//3  8//3  7//3 BACK SIDE
 		sides[4] = Triangle(r3, r8, r7, mat);
 		//f  3//3  4//3  8//3 
 		sides[5] = Triangle(r3, r4, r8, mat);
@@ -171,7 +162,7 @@ struct Cube :Intersectable{
 		Hit hit = sides[0].intersect(ray);
 		for (int i = 0; i < 12; i++) {
 			Hit h1 = sides[i].intersect(ray);
-			if (h1.t > 0 && h1.t < hit.t) {
+			if (h1.t > 0 && (h1.t < hit.t || hit.t<0)) {
 				hit = h1;
 			}
 		}
@@ -217,19 +208,31 @@ class Scene {
 	vec3 La;
 public:
 	void build() {
-		vec3 eye = vec3(1.5, 1, .5), vup = vec3(0, 1, 0), lookat = vec3(0, 0, .5);
+		vec3 eye = vec3(3, 2, .5), vup = vec3(0, 0, 1), lookat = vec3(0, 0, .5);
 		float fov = 45 * M_PI / 180;
 		camera.set(eye, lookat, vup, fov);
 
-		La = vec3(0.4f, 0.4f, 0.4f);
+		La = vec3(0.0f, 0.0f, 0.0f);
 		vec3 lightDirection(1, 1, 1), Le(2, 2, 2);
 		lights.push_back(new Light(lightDirection, Le));
 
 		vec3 kd(0.3f, 0.2f, 0.1f), ks(2, 2, 2);
 		Material* material = new Material(kd, ks, 50);
-		Cube* c = new Cube(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(0.0f, 1.0f, 0.0f), 
-			vec3(0.0f, 1.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f), vec3(1.0f, 0.0f, 1.0f), vec3(1.0f, 1.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f), material);
-		objects.push_back(c);
+		vec3 v1 = vec3(0.0f, 0.0f, 0.0f);
+		vec3 v2 = vec3(0.0f, 0.0f, 1.0f);
+		vec3 v3 = vec3(0.0f, 1.0f, 0.0f);
+		vec3 v4 = vec3(0.0f, 1.0f, 1.0f);
+		vec3 v5 = vec3(1.0f, 0.0f, 0.0f);
+		vec3 v6 = vec3(1.0f, 0.0f, 1.0f);
+		vec3 v7 = vec3(1.0f, 1.0f, 0.0f);
+		vec3 v8 = vec3(1.0f, 1.0f, 1.0f);
+		Cube* cub = new Cube(v1, v2, v3, v4, v5, v6, v7, v8, material);
+		objects.push_back(cub);
+		/*vec3 a = vec3(0, 0, 0);
+		vec3 b = vec3(0, 0, .5);
+		vec3 c = vec3(0, .5, 0);
+		Triangle* tr = new Triangle(vec3(0, 0, 0), vec3(0, 0, 0.5), vec3(0, 0.5, 0), material);
+		objects.push_back(tr);*/
 	}
 
 	void render(std::vector<vec4>& image) {
@@ -260,16 +263,15 @@ public:
 	vec3 trace(Ray ray, int depth = 0) {
 		//Original deleted, can be found in the 'minimal raytracing program'
 		Hit firstHit = firstIntersect(ray);
-		if (firstHit.t>0){
-			float L = 0.2 * (1 + dot(firstHit.normal, ray.dir));
-			printf("%f\n", L);
+		if (firstHit.t > 0) {
+			float L = 0.2 * (1 + dot(normalize(firstHit.normal), -1 * normalize(ray.dir)));
 			return vec3(L, L, L);
 		}
 		else {
 			return La;
 		}
-		
-		
+
+
 	}
 };
 
