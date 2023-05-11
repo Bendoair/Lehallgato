@@ -20,12 +20,12 @@
 #include <windows.h>
 #endif
 //ON PC
-//#include <F:\Files\School_Shit\Repos\Lehallgato\Libs\glew-1.13.0\include\GL\glew.h>		// must be downloaded
-//#include <F:\Files\School_Shit\Repos\Lehallgato\Libs\freeglut\include\GL\freeglut.h>	// must be downloaded unless you have an Apple
+#include <F:\Files\School_Shit\Repos\Lehallgato\Libs\glew-1.13.0\include\GL\glew.h>		// must be downloaded
+#include <F:\Files\School_Shit\Repos\Lehallgato\Libs\freeglut\include\GL\freeglut.h>	// must be downloaded unless you have an Apple
 //ON LAPTOP
-
-#include <GL\glew.h>		// must be downloaded
-#include <GL\freeglut.h>	// must be downloaded unless you have an Apple
+//
+//#include <GL\glew.h>		// must be downloaded
+//#include <GL\freeglut.h>	// must be downloaded unless you have an Apple
 
 
 

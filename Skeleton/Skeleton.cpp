@@ -2,6 +2,7 @@
 // Computer Graphics Sample Program: Ray-tracing-let
 //=============================================================================================
 #include "framework.h"
+#include <iostream>
 
 struct Material {
 	vec3 ka, kd, ks;
@@ -28,32 +29,56 @@ public:
 	virtual Hit intersect(const Ray& ray) = 0;
 };
 
-struct Sphere : public Intersectable {
-	vec3 center;
-	float radius;
-
-	Sphere(const vec3& _center, float _radius, Material* _material) {
-		center = _center;
-		radius = _radius;
-		material = _material;
+struct Cone :Intersectable{
+	vec3 point, norm;
+	float height, alpha;
+	
+	Cone(vec3 _point, vec3 _normal, float _height, float _alpha, 
+		Material* mat = new Material(vec3(0.3f, 0.2f, 0.1f), vec3(2, 2, 2), 50) ) {
+		point = _point; norm = _normal; height = _height; alpha = _alpha;
 	}
 
 	Hit intersect(const Ray& ray) {
 		Hit hit;
-		vec3 dist = ray.start - center;
-		float a = dot(ray.dir, ray.dir);
-		float b = dot(dist, ray.dir) * 2.0f;
-		float c = dot(dist, dist) - radius * radius;
-		float discr = b * b - 4.0f * a * c;
-		if (discr < 0) return hit;
-		float sqrt_discr = sqrtf(discr);
-		float t1 = (-b + sqrt_discr) / 2.0f / a;	// t1 >= t2 for sure
-		float t2 = (-b - sqrt_discr) / 2.0f / a;
-		if (t1 <= 0) return hit;
-		hit.t = (t2 > 0) ? t2 : t1;
-		hit.position = ray.start + ray.dir * hit.t;
-		hit.normal = (hit.position - center) * (1.0f / radius);
-		hit.material = material;
+		float a = pow(dot(ray.dir, norm), 2) - dot(ray.dir, ray.dir) * pow(cosf(alpha), 2);
+		float b = 2 * dot(ray.dir, norm)*dot((ray.start - point), norm)
+			- (2*dot(ray.dir, (ray.start - point)) * pow(cosf(alpha), 2));
+		float c = pow(dot((ray.start - point), norm), 2)
+			- (dot((ray.start - point), (ray.start - point)) * pow(cosf(alpha), 2));
+
+
+		float discriminant = b * b - 4 * a * c;
+		float x1, x2;
+		if (discriminant > 0) {
+			x1 = (-b + sqrtf(discriminant)) / (2 * a);
+			x2 = (-b - sqrtf(discriminant)) / (2 * a);
+		}
+
+		else if (discriminant == 0) {
+			x1 = x2 = -b / (2 * a);
+		}
+		float t;
+		if (x1 > 0 && x2 > 0) {
+			t = x1 < x2 ? x1 : x2;
+			hit.material = material;
+			hit.normal = norm; //not sure correct
+			hit.position = ray.start + ray.dir * t;
+			if (dot((hit.position - point), norm) >= 0 && dot((hit.position - point), norm) <= height) {
+				hit.t = t;
+			}
+		}
+		else if (x1 > 0 || x2 > 0) {
+			t = x1>x2?x1:x2;
+			hit.material = material;
+			hit.normal = norm; //not sure correct
+			
+			hit.position = ray.start + ray.dir * t;
+			if (dot((hit.position - point), norm) >= 0 && dot((hit.position - point), norm) <= height) {
+				hit.t = t;
+			}
+		}
+		
+		
 		return hit;
 	}
 };
@@ -181,8 +206,6 @@ struct TriObject :Intersectable {
 		return hit;
 		
 	}
-	//TODO
-	//first multiply then move, add to vertecies, etc
 	static TriObject* getObject(std::string const objFile, float ratio, boolean reverse, vec3 offset = vec3(0.0, 0.0, 0.0)) {
 		std::vector<std::string> lines;
 		std::string currLine;
@@ -214,22 +237,55 @@ struct TriObject :Intersectable {
 		
 	}
 
+	//static void test(std::string const objFile){
+	//	std::vector<std::string> lines;
+	//	std::string currLine;
+	//	for (int i = 0; i < objFile.size(); i++) {
+	//		if (objFile[i] == '\n') {
+	//			lines.push_back(currLine);
+	//			currLine = "";
+	//		}
+	//		else {
+	//			currLine = currLine + objFile[i];
+	//		}
+	//	}
+	//	std::vector<vec3> vertices;
+	//	std::vector<vec3> sideurs;
+	//	for (std::string line : lines) {
+	//		char id;
+	//		vec3 data;
+	//		sscanf(line.c_str(), "%c %f %f %f", &id, &data.x, &data.y, &data.z);
+	//		if (id == 'v') {
+	//			vertices.push_back(data);
+	//		}
+	//		else if (id == 'f') {
+	//			sideurs.push_back(vec3(data.x - 1, data.y - 1, data.z - 1));
+	//		}
+	//	}
+	//	for (std::string line : lines) {
+	//		char id;
+	//		vec3 data;
+	//		sscanf(line.c_str(), "%c %f %f %f", &id, &data.x, &data.y, &data.z);
+	//		std::cout << line << std::endl<< id << " " << data.x << " " << data.y << " " << data.z<<std::endl;
+	//		
+	//	}
+	//}
+
 };
 
 //Icosaheder file
 const char* IcosaObjFile = R"(v  0  -0.525731  0.850651
 v  0.850651  0  0.525731
-v  0.850651  0 - 0.525731
-v - 0.850651  0 - 0.525731
-v - 0.850651  0  0.525731
-v - 0.525731  0.850651  0
+v  0.850651  0 -0.525731
+v -0.850651  0 -0.525731
+v -0.850651  0  0.525731
+v -0.525731  0.850651  0
 v  0.525731  0.850651  0
-v  0.525731 - 0.850651  0
-v - 0.525731 - 0.850651  0
-v  0 - 0.525731 - 0.850651
-v  0  0.525731 - 0.850651
+v  0.525731 -0.850651  0
+v -0.525731 -0.850651  0
+v  0 -0.525731 -0.850651
+v  0  0.525731 -0.850651
 v  0  0.525731  0.850651
-
 f  2  3  7
 f  2  8  3
 f  4  5  6
@@ -250,75 +306,71 @@ f  3  8  10
 f  8  2  1
 f  4  10  9
 f  5  9  1)";
+//Dodecahedron file
+const char* DodecaObjFile =
+R"(v -0.57735 -0.57735  0.57735
+v  0.934172  0.356822  0
+v  0.934172 -0.356822  0
+v -0.934172  0.356822  0
+v -0.934172 -0.356822  0
+v  0  0.934172  0.356822
+v  0  0.934172 -0.356822
+v  0.356822  0 -0.934172
+v -0.356822  0 -0.934172
+v  0 -0.934172 -0.356822
+v  0 -0.934172  0.356822
+v  0.356822  0  0.934172
+v -0.356822  0  0.934172
+v  0.57735  0.57735 -0.57735
+v  0.57735  0.57735  0.57735
+v -0.57735  0.57735 -0.57735
+v -0.57735  0.57735  0.57735
+v  0.57735 -0.57735 -0.57735
+v  0.57735 -0.57735  0.57735
+v -0.57735 -0.57735 -0.57735
+f  19  3  2
+f  12  19  2
+f  15  12  2
+f  8  14  2
+f  18  8  2
+f  3  18  2
+f  20  5  4
+f  9  20  4
+f  16  9  4
+f  13  17  4
+f  1  13  4
+f  5  1  4
+f  7  16  4
+f  6  7  4
+f  17  6  4
+f  6  15  2
+f  7  6  2
+f  14  7  2
+f  10  18  3
+f  11  10  3
+f  19  11  3
+f  11  1  5
+f  10  11  5
+f  20  10  5
+f  20  9  8
+f  10  20  8
+f  18  10  8
+f  9  16  7
+f  8  9  7
+f  14  8  7
+f  12  15  6
+f  13  12  6
+f  17  13  6
+f  13  1  11
+f  12  13  11
+f  19  12  11)";
 
 
-struct Icosahedron :Intersectable { //D20
-	Triangle sides[20];
-	Icosahedron(Material* mat, vec3 eltol, float ratio) {
-		material = mat;
-		vec3 v1 = vec3(0.0f, -0.525731, 0.850651);
-		vec3 v2 = vec3(0.850651, 0.0f, 0.525731);
-		vec3 v3 = vec3(0.850651, 0.0f, -0.525731);
-		vec3 v4 = vec3(-0.850651, 0.0f, -0.525731);
-		vec3 v5 = vec3(-0.850651, 0.0f, 0.525731);
-		vec3 v6 = vec3(-0.525731, 0.850651, 0.0f);
-		vec3 v7 = vec3(0.525731, 0.850651, 0.0f);
-		vec3 v8 = vec3(0.525731, -0.850651, 0.0f);
-		vec3 v9 = vec3(-0.525731, -0.850651, 0.0f);
-		vec3 v10 = vec3(0.0f, -0.525731, -0.850651);
-		vec3 v11 = vec3(0.0f, 0.525731, -0.850651);
-		vec3 v12 = vec3(0.0f, 0.525731, 0.850651);
-
-		v1 = (v1 + eltol) * ratio;
-		v2 = (v2 + eltol) * ratio;
-		v3 = (v3 + eltol) * ratio;
-		v4 = (v4 + eltol) * ratio;
-		v5 = (v5 + eltol) * ratio;
-		v6 = (v6 + eltol) * ratio;
-		v7 = (v7 + eltol) * ratio;
-		v8 = (v8 + eltol) * ratio;
-		v9 = (v9 + eltol) * ratio;
-		v10 = (v10 + eltol) * ratio;
-		v11 = (v11 + eltol) * ratio;
-		v12 = (v12 + eltol) * ratio;
-
-		sides[0] = Triangle(v2, v3, v7, mat);
-		sides[1] = Triangle(v2, v8, v3, mat);
-		sides[2] = Triangle(v4, v5, v6, mat);
-		sides[3] = Triangle(v5, v4, v9, mat);
-		sides[4] = Triangle(v7, v6, v12, mat);
-		sides[5] = Triangle(v6, v7, v11, mat);
-		sides[6] = Triangle(v10, v11, v3, mat);
-		sides[7] = Triangle(v11, v10, v4, mat);
-		sides[8] = Triangle(v8, v9, v10, mat);
-		sides[9] = Triangle(v9, v8, v1, mat);
-		sides[10] = Triangle(v12, v1, v5, mat);
-		sides[11] = Triangle(v1, v12, v5, mat);
-		sides[12] = Triangle(v7, v3, v11, mat);
-		sides[13] = Triangle(v2, v7, v12, mat);
-		sides[14] = Triangle(v4, v6, v11, mat);
-		sides[15] = Triangle(v6, v5, v12, mat);
-		sides[16] = Triangle(v3, v8, v10, mat);
-		sides[17] = Triangle(v8, v2, v1, mat);
-		sides[18] = Triangle(v4, v10, v9, mat);
-		sides[19] = Triangle(v5, v9, v1, mat);
-
-	}
-	Hit intersect(const Ray& ray) {
-		Hit hit = sides[0].intersect(ray);
-		for (int i = 0; i < 20; i++) {
-			Hit h1 = sides[i].intersect(ray);
-			if (h1.t > 0 && (h1.t < hit.t || hit.t < 0)) {
-				hit = h1;
-			}
-		}
-		return hit;
-	}
-};
 class Camera {
-	vec3 eye, lookat, right, up;
+	
 public:
-	void set(vec3 _eye, vec3 _lookat, vec3 vup, float fov) {
+	vec3 eye, lookat, right, up;
+	void set(vec3 _eye, vec3 _lookat, vec3 vup, float fov = 45 * M_PI / 180) {
 		eye = _eye;
 		lookat = _lookat;
 		vec3 w = eye - lookat;
@@ -329,6 +381,13 @@ public:
 	Ray getRay(int X, int Y) {
 		vec3 dir = lookat + right * (2.0f * (X + 0.5f) / windowWidth - 1) + up * (2.0f * (Y + 0.5f) / windowHeight - 1) - eye;
 		return Ray(eye, dir);
+	}
+	
+	void Animate(float dt) {
+		eye = vec3((eye.x - lookat.x) * cos(dt) + (eye.z - lookat.z) * sin(dt) + lookat.x,
+			eye.y,
+			-(eye.x - lookat.x) * sin(dt) + (eye.z - lookat.z) * cos(dt) + lookat.z);
+		set(eye, lookat, up);
 	}
 };
 
@@ -346,113 +405,14 @@ float rnd() { return (float)rand() / RAND_MAX; }
 const float epsilon = 0.0001f;
 
 class Scene {
+public:
 	std::vector<Intersectable*> objects;
 	std::vector<Light*> lights;
 	Camera camera;
 	vec3 La;
-public:
-	void pushDodecahedron() {
-		vec3 corrig2 = vec3(7, 3, 0.8);
-		float ratio2 = 8;
-		//dodecahedron
-		vec3 ddvert1 = (vec3(-.57735, -0.57735, 0.57735) + vec3(corrig2)) / ratio2;
-		vec3 ddvert2 = (vec3(0.934172, 0.356822, 0) + vec3(corrig2)) / ratio2;
-		vec3 ddvert3 = (vec3(0.93412, -0.356822, 0) + vec3(corrig2)) / ratio2;
-		vec3 ddvert4 = (vec3(-0.934172, 0.356822, 0) + vec3(corrig2)) / ratio2;
-		vec3 ddvert5 = (vec3(-0.93412, -0.356822, 0) + vec3(corrig2)) / ratio2;
-		vec3 ddvert6 = (vec3(0, 0.934172, 0.356822) + vec3(corrig2)) / ratio2;
-		vec3 ddvert7 = (vec3(0, 0.93412, -0.356822) + vec3(corrig2)) / ratio2;
-		vec3 ddvert8 = (vec3(0.356822, 0, -0.934172) + vec3(corrig2)) / ratio2;
-		vec3 ddvert9 = (vec3(-0.356822, 0, -0.934172) + vec3(corrig2)) / ratio2;
-		vec3 ddvert10 = (vec3(0, -0.93412, -0.356822) + vec3(corrig2)) / ratio2;
-		vec3 ddvert11 = (vec3(0, -0.934172, 0.356822) + vec3(corrig2)) / ratio2;
-		vec3 ddvert12 = (vec3(0.356822, 0, 0.934172) + vec3(corrig2)) / ratio2;
-		vec3 ddvert13 = (vec3(-0.356822, 0, 0.934172) + vec3(corrig2)) / ratio2;
-		vec3 ddvert14 = (vec3(0.57735, 0.5775, -0.57735) + vec3(corrig2)) / ratio2;
-		vec3 ddvert15 = (vec3(0.57735, 0.57735, 0.57735) + vec3(corrig2)) / ratio2;
-		vec3 ddvert16 = (vec3(-0.57735, 0.5775, -0.57735) + vec3(corrig2)) / ratio2;
-		vec3 ddvert17 = (vec3(-0.57735, 0.57735, 0.57735) + vec3(corrig2)) / ratio2;
-		vec3 ddvert18 = (vec3(0.5775, -0.5775, -0.57735) + vec3(corrig2)) / ratio2;
-		vec3 ddvert19 = (vec3(0.5775, -0.57735, 0.57735) + vec3(corrig2)) / ratio2;
-		vec3 ddvert20 = (vec3(-0.5775, -0.5775, -0.57735) + vec3(corrig2)) / ratio2;
 
-
-		Triangle* ddface1 = new Triangle(ddvert19, ddvert3, ddvert2);
-		Triangle* ddface2 = new Triangle(ddvert12, ddvert19, ddvert2);
-		Triangle* ddface3 = new Triangle(ddvert15, ddvert12, ddvert2);
-		Triangle* ddface4 = new Triangle(ddvert8, ddvert14, ddvert2);
-		Triangle* ddface5 = new Triangle(ddvert18, ddvert8, ddvert2);
-		Triangle* ddface6 = new Triangle(ddvert3, ddvert18, ddvert2);
-		Triangle* ddface7 = new Triangle(ddvert20, ddvert5, ddvert4);
-		Triangle* ddface8 = new Triangle(ddvert9, ddvert20, ddvert4);
-		Triangle* ddface9 = new Triangle(ddvert16, ddvert9, ddvert4);
-		Triangle* ddface10 = new Triangle(ddvert13, ddvert17, ddvert4);
-		Triangle* ddface11 = new Triangle(ddvert1, ddvert13, ddvert4);
-		Triangle* ddface12 = new Triangle(ddvert5, ddvert1, ddvert4);
-		Triangle* ddface13 = new Triangle(ddvert7, ddvert16, ddvert4);
-		Triangle* ddface14 = new Triangle(ddvert6, ddvert7, ddvert4);
-		Triangle* ddface15 = new Triangle(ddvert17, ddvert6, ddvert4);
-		Triangle* ddface16 = new Triangle(ddvert6, ddvert15, ddvert2);
-		Triangle* ddface17 = new Triangle(ddvert7, ddvert6, ddvert2);
-		Triangle* ddface18 = new Triangle(ddvert14, ddvert7, ddvert2);
-		Triangle* ddface19 = new Triangle(ddvert10, ddvert18, ddvert3);
-		Triangle* ddface20 = new Triangle(ddvert11, ddvert10, ddvert3);
-		Triangle* ddface21 = new Triangle(ddvert19, ddvert11, ddvert3);
-		Triangle* ddface22 = new Triangle(ddvert11, ddvert1, ddvert5);
-		Triangle* ddface23 = new Triangle(ddvert10, ddvert11, ddvert5);
-		Triangle* ddface24 = new Triangle(ddvert20, ddvert10, ddvert5);
-		Triangle* ddface25 = new Triangle(ddvert20, ddvert9, ddvert8);
-		Triangle* ddface26 = new Triangle(ddvert10, ddvert20, ddvert8);
-		Triangle* ddface27 = new Triangle(ddvert18, ddvert10, ddvert8);
-		Triangle* ddface28 = new Triangle(ddvert9, ddvert16, ddvert7);
-		Triangle* ddface29 = new Triangle(ddvert8, ddvert9, ddvert7);
-		Triangle* ddface30 = new Triangle(ddvert14, ddvert8, ddvert7);
-		Triangle* ddface31 = new Triangle(ddvert12, ddvert15, ddvert6);
-		Triangle* ddface32 = new Triangle(ddvert13, ddvert12, ddvert6);
-		Triangle* ddface33 = new Triangle(ddvert17, ddvert13, ddvert6);
-		Triangle* ddface34 = new Triangle(ddvert13, ddvert1, ddvert11);
-		Triangle* ddface35 = new Triangle(ddvert12, ddvert13, ddvert11);
-		Triangle* ddface36 = new Triangle(ddvert19, ddvert12, ddvert11);
-
-		objects.push_back(ddface1);
-		objects.push_back(ddface2);
-		objects.push_back(ddface3);
-		objects.push_back(ddface4);
-		objects.push_back(ddface5);
-		objects.push_back(ddface6);
-		objects.push_back(ddface7);
-		objects.push_back(ddface8);
-		objects.push_back(ddface9);
-		objects.push_back(ddface10);
-		objects.push_back(ddface11);
-		objects.push_back(ddface12);
-		objects.push_back(ddface13);
-		objects.push_back(ddface14);
-		objects.push_back(ddface15);
-		objects.push_back(ddface16);
-		objects.push_back(ddface17);
-		objects.push_back(ddface18);
-		objects.push_back(ddface19);
-		objects.push_back(ddface20);
-		objects.push_back(ddface21);
-		objects.push_back(ddface22);
-		objects.push_back(ddface23);
-		objects.push_back(ddface24);
-		objects.push_back(ddface25);
-		objects.push_back(ddface26);
-		objects.push_back(ddface27);
-		objects.push_back(ddface28);
-		objects.push_back(ddface29);
-		objects.push_back(ddface30);
-		objects.push_back(ddface31);
-		objects.push_back(ddface32);
-		objects.push_back(ddface33);
-		objects.push_back(ddface34);
-		objects.push_back(ddface35);
-		objects.push_back(ddface36);
-	}
 	void build() {
-		vec3 eye = vec3(2, 1.5, .5), vup = vec3(0, 0, 1), lookat = vec3(0, 0, .5);
+		vec3 eye = vec3(2, 3, .5), vup = vec3(0, 0, 1), lookat = vec3(0, 0, .5);
 		float fov = 45 * M_PI / 180;
 		camera.set(eye, lookat, vup, fov);
 
@@ -472,10 +432,14 @@ public:
 		vec3 v8 = vec3(1.0f, 1.0f, 1.0f);
 		Cube* cub = new Cube(v1, v2, v3, v4, v5, v6, v7, v8, material);
 		objects.push_back(cub);
-		//Icosahedron* Ica = new Icosahedron(material,vec3(2,3, 0.850651), 0.25);
-		TriObject* Ica = TriObject::getObject(IcosaObjFile, 0.15, false, vec3(0.8, 0.7, 0.1));
+		TriObject* Ica = TriObject::getObject(IcosaObjFile, 0.15, false, vec3(0.8, 0.7, 0.15));
 		objects.push_back(Ica);
-		pushDodecahedron();
+		TriObject* Dca = TriObject::getObject(DodecaObjFile, 0.2, false, vec3(0.2, 0.7, 0.2));
+		objects.push_back(Dca);
+
+		Cone* cone1 = new Cone(vec3(0.5, 0.0, 0.5), vec3(0, 1, 0), 0.3, M_PI / 6);
+		objects.push_back(cone1);
+		//TriObject::test(DodecaObjFile);
 	}
 
 	void render(std::vector<vec4>& image) {
@@ -516,6 +480,7 @@ public:
 
 
 	}
+	void Animate(float dt) { camera.Animate(dt); }
 };
 
 GPUProgram gpuProgram; // vertex and fragment shaders
@@ -604,7 +569,18 @@ void onDisplay() {
 }
 
 // Key of ASCII code pressed
+//TODO
 void onKeyboard(unsigned char key, int pX, int pY) {
+	if (key == 'd') {
+		scene.Animate(0.01f);
+		glutPostRedisplay();
+		onDisplay();
+		//nem megy :((((((((
+		
+	}
+
+
+	
 }
 
 // Key of ASCII code released
@@ -622,4 +598,5 @@ void onMouseMotion(int pX, int pY) {
 
 // Idle event indicating that some time elapsed: do animation here
 void onIdle() {
+	
 }
