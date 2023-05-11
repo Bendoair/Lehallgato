@@ -61,10 +61,12 @@ struct Sphere : public Intersectable {
 struct Triangle :Intersectable {
 	vec3 r1, r2, r3;
 	vec3 norm;
-
-	Triangle(vec3 ia, vec3 ib, vec3 ic, Material* mat) {
+	boolean reverse;
+	
+	Triangle(vec3 ia, vec3 ib, vec3 ic, Material* mat = new Material(vec3 (0.3f, 0.2f, 0.1f), vec3(2, 2, 2), 50), boolean _reverse = false) {
 		r1 = ia; r2 = ib; r3 = ic;
 		norm = normalize(cross((r2 - r1), (r3 - r1)));
+		reverse = _reverse;
 		material = mat;
 	}
 
@@ -75,6 +77,17 @@ struct Triangle :Intersectable {
 
 	Hit intersect(const Ray& ray) {
 		Hit hit;
+		if (reverse)
+		{
+			if (dot(ray.dir, norm) < 0) {
+				return hit;
+			}
+		}
+		else {
+			if (dot(ray.dir, norm) > 0) {
+				return hit;
+			}
+		}
 		float t = dot((r1 - ray.start), norm) / dot(ray.dir, norm);
 		vec3 p = ray.start + ray.dir * t;
 		if (dot(cross((r2 - r1), (p - r1)), norm) > 0
@@ -91,35 +104,6 @@ struct Triangle :Intersectable {
 	}
 };
 
-struct Side :Intersectable {
-	vec3 a, b, c, d;
-	vec3 norm;
-
-	Side() {
-		a = b = c = d = vec3(0, 0, 0);
-		norm = vec3(0, 0, 0);
-	}
-	Side(vec3 a1, vec3 b1, vec3 c1, vec3 d1, Material* mat) {
-		material = mat;
-		a = a1; b = b1; c = c1; d = d1;
-		norm = normalize((b - a) * (c - a));
-	}
-	Hit intersect(const Ray& ray) {
-		Hit hit;
-		Triangle topside(a, b, c, material);
-		Triangle botside(b, c, d, material);
-		Hit h1 = topside.intersect(ray);
-		Hit h2 = botside.intersect(ray);
-		if (h1.t > 0) {
-			hit = h1;
-		}
-		else if (h2.t > 0) {
-			hit = h2;
-		}
-		return hit;
-	}
-};
-
 struct Cube :Intersectable {
 	Triangle sides[12];
 
@@ -127,29 +111,29 @@ struct Cube :Intersectable {
 		material = mat;
 
 		//f  1//2  7//2  5//2 BOTTOM
-		sides[0] = Triangle(r1, r7, r5, mat);
+		sides[0] = Triangle(r1, r7, r5, mat,true);
 		//f  1//2  3//2  7//2 
-		sides[1] = Triangle(r1, r3, r7, mat);
+		sides[1] = Triangle(r1, r3, r7, mat, true);
 		//f  1//6  4//6  3//6 LEFT SIDE
-		sides[2] = Triangle(r1, r4, r3, mat);
+		sides[2] = Triangle(r1, r4, r3, mat, true);
 		//f  1//6  2//6  4//6 
-		sides[3] = Triangle(r1, r2, r4, mat);
+		sides[3] = Triangle(r1, r2, r4, mat, true);
 		//f  3//3  8//3  7//3 BACK SIDE
-		sides[4] = Triangle(r3, r8, r7, mat);
+		sides[4] = Triangle(r3, r8, r7, mat, true);
 		//f  3//3  4//3  8//3 
-		sides[5] = Triangle(r3, r4, r8, mat);
+		sides[5] = Triangle(r3, r4, r8, mat, true);
 		//f  5//5  7//5  8//5 
-		sides[6] = Triangle(r5, r7, r8, mat);
+		sides[6] = Triangle(r5, r7, r8, mat, true);
 		//f  5//5  8//5  6//5 
-		sides[7] = Triangle(r5, r8, r6, mat);
+		sides[7] = Triangle(r5, r8, r6, mat, true);
 		//f  1//4  5//4  6//4 
-		sides[8] = Triangle(r1, r5, r6, mat);
+		sides[8] = Triangle(r1, r5, r6, mat, true);
 		//f  1//4  6//4  2//4 
-		sides[9] = Triangle(r1, r6, r2, mat);
+		sides[9] = Triangle(r1, r6, r2, mat, true);
 		//f  2//1  6//1  8//1 
-		sides[10] = Triangle(r2, r6, r8, mat);
+		sides[10] = Triangle(r2, r6, r8, mat, true);
 		//f  2//1  8//1  4//1 
-		sides[11] = Triangle(r2, r8, r4, mat);
+		sides[11] = Triangle(r2, r8, r4, mat, true);
 
 	}
 	Cube(Material* mat) {
@@ -162,7 +146,7 @@ struct Cube :Intersectable {
 		Hit hit = sides[0].intersect(ray);
 		for (int i = 0; i < 12; i++) {
 			Hit h1 = sides[i].intersect(ray);
-			if (h1.t > 0 && (h1.t < hit.t || hit.t<0)) {
+			if (h1.t > 0 && (h1.t < hit.t || hit.t < 0)) {
 				hit = h1;
 			}
 		}
@@ -171,6 +155,57 @@ struct Cube :Intersectable {
 
 };
 
+
+struct Icosahedron :Intersectable { //D20
+	Triangle sides[20];
+	Icosahedron(Material* mat) {
+		material = mat;
+		vec3 v1 = vec3(0.0f, -0.525731, 0.850651);
+		vec3 v2 = vec3(0.850651, 0.0f, 0.525731);
+		vec3 v3 = vec3(0.850651, 0.0f, -0.525731);
+		vec3 v4 = vec3(-0.850651, 0.0f, -0.525731);
+		vec3 v5 = vec3(-0.850651, 0.0f, 0.525731);
+		vec3 v6 = vec3(-0.525731, 0.850651, 0.0f);
+		vec3 v7 = vec3(0.525731, 0.850651, 0.0f);
+		vec3 v8 = vec3(0.525731, -0.850651, 0.0f);
+		vec3 v9 = vec3(-0.525731, -0.850651, 0.0f);
+		vec3 v10 = vec3(0.0f, -0.525731, -0.850651);
+		vec3 v11 = vec3(0.0f, 0.525731, -0.850651);
+		vec3 v12 = vec3(0.0f, 0.525731, 0.850651);
+
+		sides[0] = Triangle(v2,v3,v7,mat);
+		sides[1] = Triangle(v2,v8,v3,mat);
+		sides[2] = Triangle(v4,v5,v6, mat);
+		sides[3] = Triangle(v5,v4,v9, mat);
+		sides[4] = Triangle(v7,v6,v12, mat);
+		sides[5] = Triangle(v6,v7,v11, mat);
+		sides[6] = Triangle(v10, v11, v3, mat);
+		sides[7] = Triangle(v11,v10,v4, mat);
+		sides[8] = Triangle(v8,v9,v10, mat);
+		sides[9] = Triangle(v9, v8, v1, mat);
+		sides[10] = Triangle(v12, v1,v5, mat);
+		sides[11] = Triangle(v1,v12,v5, mat);
+		sides[12] = Triangle(v7,v3,v11, mat);
+		sides[13] = Triangle(v2,v7,v12, mat);
+		sides[14] = Triangle(v4,v6,v11, mat);
+		sides[15] = Triangle(v6,v5,v12, mat);
+		sides[16] = Triangle(v3,v8,v10, mat);
+		sides[17] = Triangle(v8,v2,v1, mat);
+		sides[18] = Triangle(v4,v10,v9, mat);
+		sides[19] = Triangle(v5,v9,v1, mat);
+		
+	}
+	Hit intersect(const Ray& ray) {
+		Hit hit = sides[0].intersect(ray);
+		for (int i = 0; i < 20; i++) {
+			Hit h1 = sides[i].intersect(ray);
+			if (h1.t > 0 && (h1.t < hit.t || hit.t < 0)) {
+				hit = h1;
+			}
+		}
+		return hit;
+	}
+};
 class Camera {
 	vec3 eye, lookat, right, up;
 public:
@@ -207,8 +242,108 @@ class Scene {
 	Camera camera;
 	vec3 La;
 public:
+	void pushDodecahedron() {
+		vec3 corrig2 = vec3(7, 3, 0.8);
+		float ratio2 = 8;
+		//dodecahedron
+		vec3 ddvert1 = (vec3(-.57735, -0.57735, 0.57735) + vec3(corrig2)) / ratio2;
+		vec3 ddvert2 = (vec3(0.934172, 0.356822, 0) + vec3(corrig2)) / ratio2;
+		vec3 ddvert3 = (vec3(0.93412, -0.356822, 0) + vec3(corrig2)) / ratio2;
+		vec3 ddvert4 = (vec3(-0.934172, 0.356822, 0) + vec3(corrig2)) / ratio2;
+		vec3 ddvert5 = (vec3(-0.93412, -0.356822, 0) + vec3(corrig2)) / ratio2;
+		vec3 ddvert6 = (vec3(0, 0.934172, 0.356822) + vec3(corrig2)) / ratio2;
+		vec3 ddvert7 = (vec3(0, 0.93412, -0.356822) + vec3(corrig2)) / ratio2;
+		vec3 ddvert8 = (vec3(0.356822, 0, -0.934172) + vec3(corrig2)) / ratio2;
+		vec3 ddvert9 = (vec3(-0.356822, 0, -0.934172) + vec3(corrig2)) / ratio2;
+		vec3 ddvert10 = (vec3(0, -0.93412, -0.356822) + vec3(corrig2)) / ratio2;
+		vec3 ddvert11 = (vec3(0, -0.934172, 0.356822) + vec3(corrig2)) / ratio2;
+		vec3 ddvert12 = (vec3(0.356822, 0, 0.934172) + vec3(corrig2)) / ratio2;
+		vec3 ddvert13 = (vec3(-0.356822, 0, 0.934172) + vec3(corrig2)) / ratio2;
+		vec3 ddvert14 = (vec3(0.57735, 0.5775, -0.57735) + vec3(corrig2)) / ratio2;
+		vec3 ddvert15 = (vec3(0.57735, 0.57735, 0.57735) + vec3(corrig2)) / ratio2;
+		vec3 ddvert16 = (vec3(-0.57735, 0.5775, -0.57735) + vec3(corrig2)) / ratio2;
+		vec3 ddvert17 = (vec3(-0.57735, 0.57735, 0.57735) + vec3(corrig2)) / ratio2;
+		vec3 ddvert18 = (vec3(0.5775, -0.5775, -0.57735) + vec3(corrig2)) / ratio2;
+		vec3 ddvert19 = (vec3(0.5775, -0.57735, 0.57735) + vec3(corrig2)) / ratio2;
+		vec3 ddvert20 = (vec3(-0.5775, -0.5775, -0.57735) + vec3(corrig2)) / ratio2;
+
+
+		Triangle* ddface1 = new Triangle(ddvert19, ddvert3, ddvert2);
+		Triangle* ddface2 = new Triangle(ddvert12, ddvert19, ddvert2);
+		Triangle* ddface3 = new Triangle(ddvert15, ddvert12, ddvert2);
+		Triangle* ddface4 = new Triangle(ddvert8, ddvert14, ddvert2);
+		Triangle* ddface5 = new Triangle(ddvert18, ddvert8, ddvert2);
+		Triangle* ddface6 = new Triangle(ddvert3, ddvert18, ddvert2);
+		Triangle* ddface7 = new Triangle(ddvert20, ddvert5, ddvert4);
+		Triangle* ddface8 = new Triangle(ddvert9, ddvert20, ddvert4);
+		Triangle* ddface9 = new Triangle(ddvert16, ddvert9, ddvert4);
+		Triangle* ddface10 = new Triangle(ddvert13, ddvert17, ddvert4);
+		Triangle* ddface11 = new Triangle(ddvert1, ddvert13, ddvert4);
+		Triangle* ddface12 = new Triangle(ddvert5, ddvert1, ddvert4);
+		Triangle* ddface13 = new Triangle(ddvert7, ddvert16, ddvert4);
+		Triangle* ddface14 = new Triangle(ddvert6, ddvert7, ddvert4);
+		Triangle* ddface15 = new Triangle(ddvert17, ddvert6, ddvert4);
+		Triangle* ddface16 = new Triangle(ddvert6, ddvert15, ddvert2);
+		Triangle* ddface17 = new Triangle(ddvert7, ddvert6, ddvert2);
+		Triangle* ddface18 = new Triangle(ddvert14, ddvert7, ddvert2);
+		Triangle* ddface19 = new Triangle(ddvert10, ddvert18, ddvert3);
+		Triangle* ddface20 = new Triangle(ddvert11, ddvert10, ddvert3);
+		Triangle* ddface21 = new Triangle(ddvert19, ddvert11, ddvert3);
+		Triangle* ddface22 = new Triangle(ddvert11, ddvert1, ddvert5);
+		Triangle* ddface23 = new Triangle(ddvert10, ddvert11, ddvert5);
+		Triangle* ddface24 = new Triangle(ddvert20, ddvert10, ddvert5);
+		Triangle* ddface25 = new Triangle(ddvert20, ddvert9, ddvert8);
+		Triangle* ddface26 = new Triangle(ddvert10, ddvert20, ddvert8);
+		Triangle* ddface27 = new Triangle(ddvert18, ddvert10, ddvert8);
+		Triangle* ddface28 = new Triangle(ddvert9, ddvert16, ddvert7);
+		Triangle* ddface29 = new Triangle(ddvert8, ddvert9, ddvert7);
+		Triangle* ddface30 = new Triangle(ddvert14, ddvert8, ddvert7);
+		Triangle* ddface31 = new Triangle(ddvert12, ddvert15, ddvert6);
+		Triangle* ddface32 = new Triangle(ddvert13, ddvert12, ddvert6);
+		Triangle* ddface33 = new Triangle(ddvert17, ddvert13, ddvert6);
+		Triangle* ddface34 = new Triangle(ddvert13, ddvert1, ddvert11);
+		Triangle* ddface35 = new Triangle(ddvert12, ddvert13, ddvert11);
+		Triangle* ddface36 = new Triangle(ddvert19, ddvert12, ddvert11);
+
+		objects.push_back(ddface1);
+		objects.push_back(ddface2);
+		objects.push_back(ddface3);
+		objects.push_back(ddface4);
+		objects.push_back(ddface5);
+		objects.push_back(ddface6);
+		objects.push_back(ddface7);
+		objects.push_back(ddface8);
+		objects.push_back(ddface9);
+		objects.push_back(ddface10);
+		objects.push_back(ddface11);
+		objects.push_back(ddface12);
+		objects.push_back(ddface13);
+		objects.push_back(ddface14);
+		objects.push_back(ddface15);
+		objects.push_back(ddface16);
+		objects.push_back(ddface17);
+		objects.push_back(ddface18);
+		objects.push_back(ddface19);
+		objects.push_back(ddface20);
+		objects.push_back(ddface21);
+		objects.push_back(ddface22);
+		objects.push_back(ddface23);
+		objects.push_back(ddface24);
+		objects.push_back(ddface25);
+		objects.push_back(ddface26);
+		objects.push_back(ddface27);
+		objects.push_back(ddface28);
+		objects.push_back(ddface29);
+		objects.push_back(ddface30);
+		objects.push_back(ddface31);
+		objects.push_back(ddface32);
+		objects.push_back(ddface33);
+		objects.push_back(ddface34);
+		objects.push_back(ddface35);
+		objects.push_back(ddface36);
+	}
 	void build() {
-		vec3 eye = vec3(3, 2, .5), vup = vec3(0, 0, 1), lookat = vec3(0, 0, .5);
+		vec3 eye = vec3(3, 2.5, .5), vup = vec3(0, 0, 1), lookat = vec3(0, 0, .5);
 		float fov = 45 * M_PI / 180;
 		camera.set(eye, lookat, vup, fov);
 
@@ -233,6 +368,9 @@ public:
 		vec3 c = vec3(0, .5, 0);
 		Triangle* tr = new Triangle(vec3(0, 0, 0), vec3(0, 0, 0.5), vec3(0, 0.5, 0), material);
 		objects.push_back(tr);*/
+		Icosahedron* Ica = new Icosahedron(material);
+		//objects.push_back(Ica);
+		pushDodecahedron();
 	}
 
 	void render(std::vector<vec4>& image) {
