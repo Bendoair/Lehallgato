@@ -160,9 +160,13 @@ struct Cube :Intersectable {
 struct TriObject :Intersectable {
 	std::vector<Triangle> sides;
 	
-	TriObject(std::vector<vec3> const vertices, std::vector<vec3> const sideurs) {
+	TriObject(std::vector<vec3> const vertices, std::vector<vec3> const sideurs, 
+		float ratio, boolean reverse, vec3 offset = vec3(0.0, 0.0, 0.0)) {
 		for (vec3 siddefs : sideurs) {
-			sides.push_back(Triangle(vertices[(int)siddefs.x], vertices[(int)siddefs.y], vertices[(int)siddefs.z]));
+			sides.push_back(Triangle(
+				vertices[(int)siddefs.x]*ratio + offset, 
+				vertices[(int)siddefs.y] * ratio + offset,
+				vertices[(int)siddefs.z] * ratio + offset)), true;
 		}
 	}
 
@@ -179,7 +183,7 @@ struct TriObject :Intersectable {
 	}
 	//TODO
 	//first multiply then move, add to vertecies, etc
-	static TriObject* getObject(std::string const objFile, vec3 offset = vec3(0,0,0), float ratio) {
+	static TriObject* getObject(std::string const objFile, float ratio, boolean reverse, vec3 offset = vec3(0.0, 0.0, 0.0)) {
 		std::vector<std::string> lines;
 		std::string currLine;
 		for (int i = 0; i < objFile.size(); i++) {
@@ -205,7 +209,7 @@ struct TriObject :Intersectable {
 			}
 		}
 
-		return new TriObject(vertices, sideurs);
+		return new TriObject(vertices, sideurs, ratio, reverse, offset);
 
 		
 	}
@@ -469,7 +473,7 @@ public:
 		Cube* cub = new Cube(v1, v2, v3, v4, v5, v6, v7, v8, material);
 		objects.push_back(cub);
 		//Icosahedron* Ica = new Icosahedron(material,vec3(2,3, 0.850651), 0.25);
-		TriObject* Ica = TriObject::getObject(IcosaObjFile);
+		TriObject* Ica = TriObject::getObject(IcosaObjFile, 0.15, false, vec3(0.8, 0.7, 0.1));
 		objects.push_back(Ica);
 		pushDodecahedron();
 	}
