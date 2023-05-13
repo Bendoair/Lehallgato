@@ -30,12 +30,13 @@ public:
 };
 
 struct Cone :Intersectable{
-	vec3 point, norm;
+	vec3 point, norm, color;
 	float height, alpha;
+
 	
-	Cone(vec3 _point, vec3 _normal, float _height, float _alpha, 
+	Cone(vec3 _point, vec3 _normal, float _height, float _alpha, vec3 _color,
 		Material* mat = new Material(vec3(0.3f, 0.2f, 0.1f), vec3(2, 2, 2), 50) ) {
-		point = _point; norm = _normal; height = _height; alpha = _alpha;
+		point = _point; norm = _normal; height = _height; alpha = _alpha; color = _color;
 	}
 
 	Hit intersect(const Ray& ray) {
@@ -57,22 +58,64 @@ struct Cone :Intersectable{
 		else if (discriminant == 0) {
 			x1 = x2 = -b / (2 * a);
 		}
-		float t;
+		else {
+			x1 = x2 = 0;
+		}
+		float t = -1;
+		
 		if (x1 > 0 && x2 > 0) {
-			t = x1 < x2 ? x1 : x2;
+			vec3 p1 = ray.start + ray.dir * x1;
+			vec3 p2 = ray.start + ray.dir * x2;
+			bool b1 = false;
+			bool b2 = false;
+
+
+			if (dot((p1 - point), norm) > 0) {
+				b1 = true;
+			}
+			if (dot((p2 - point), norm) > 0) {
+				b2 = true;
+			}
+
+			if (b1 && b2) {
+				t = x1 < x2 ? x1 : x2;
+				vec3 r = ray.start + ray.dir * t;
+				if (dot((r - point), norm) > height) {
+					t = x1 < x2 ? x2 : x1;
+				}
+
+			}
+			else if (b1) {
+				t = x1;
+			}
+			else if (b2) {
+				t = x2;
+			}
+			vec3 r = ray.start + ray.dir * t;
+			vec3 hitnormal = 2 * (dot((r-point),norm))*norm - ( 2 * (r - point)*pow(cosf(alpha), 2));
+
 			hit.material = material;
-			hit.normal = norm; //not sure correct
-			hit.position = ray.start + ray.dir * t;
+			hit.normal = hitnormal; //correct? pls
+			if (dot(hitnormal, ray.dir) > 0) {
+				hit.normal = hit.normal * (-1);
+			}
+			hit.position = r;
 			if (dot((hit.position - point), norm) >= 0 && dot((hit.position - point), norm) <= height) {
 				hit.t = t;
 			}
 		}
 		else if (x1 > 0 || x2 > 0) {
 			t = x1>x2?x1:x2;
-			hit.material = material;
-			hit.normal = norm; //not sure correct
 			
-			hit.position = ray.start + ray.dir * t;
+			vec3 r = ray.start + ray.dir * t;
+			vec3 hitnormal = 2 * (dot((r - point), norm)) * norm - (2 * (r - point) * pow(cosf(alpha), 2));
+
+			hit.material = material;
+			hit.normal = hitnormal; //correct? pls
+			if (dot(hitnormal, ray.dir) > 0) {
+				hit.normal = hit.normal * (-1);
+			}
+			hit.position = r;
 			if (dot((hit.position - point), norm) >= 0 && dot((hit.position - point), norm) <= height) {
 				hit.t = t;
 			}
@@ -237,40 +280,6 @@ struct TriObject :Intersectable {
 		
 	}
 
-	//static void test(std::string const objFile){
-	//	std::vector<std::string> lines;
-	//	std::string currLine;
-	//	for (int i = 0; i < objFile.size(); i++) {
-	//		if (objFile[i] == '\n') {
-	//			lines.push_back(currLine);
-	//			currLine = "";
-	//		}
-	//		else {
-	//			currLine = currLine + objFile[i];
-	//		}
-	//	}
-	//	std::vector<vec3> vertices;
-	//	std::vector<vec3> sideurs;
-	//	for (std::string line : lines) {
-	//		char id;
-	//		vec3 data;
-	//		sscanf(line.c_str(), "%c %f %f %f", &id, &data.x, &data.y, &data.z);
-	//		if (id == 'v') {
-	//			vertices.push_back(data);
-	//		}
-	//		else if (id == 'f') {
-	//			sideurs.push_back(vec3(data.x - 1, data.y - 1, data.z - 1));
-	//		}
-	//	}
-	//	for (std::string line : lines) {
-	//		char id;
-	//		vec3 data;
-	//		sscanf(line.c_str(), "%c %f %f %f", &id, &data.x, &data.y, &data.z);
-	//		std::cout << line << std::endl<< id << " " << data.x << " " << data.y << " " << data.z<<std::endl;
-	//		
-	//	}
-	//}
-
 };
 
 //Icosaheder file
@@ -408,11 +417,12 @@ class Scene {
 public:
 	std::vector<Intersectable*> objects;
 	std::vector<Light*> lights;
+	std::vector<Cone*> cones;
 	Camera camera;
 	vec3 La;
 
 	void build() {
-		vec3 eye = vec3(2, 3, .5), vup = vec3(0, 0, 1), lookat = vec3(0, 0, .5);
+		vec3 eye = vec3(3, 2 , .5), vup = vec3(0, 0, 1), lookat = vec3(0, 0, .5);
 		float fov = 45 * M_PI / 180;
 		camera.set(eye, lookat, vup, fov);
 
@@ -437,14 +447,15 @@ public:
 		TriObject* Dca = TriObject::getObject(DodecaObjFile, 0.2, false, vec3(0.2, 0.7, 0.2));
 		objects.push_back(Dca);
 
-		Cone* cone1 = new Cone(vec3(0.5, 0.0, 0.5), vec3(0, 1, 0), 0.3, M_PI / 6);
+		Cone* cone1 = new Cone(vec3(0.5, 0.0, 0.2), vec3(0, 1, 0), 0.2, M_PI / 8, vec3(1,0,0));
 		objects.push_back(cone1);
-		//TriObject::test(DodecaObjFile);
+		cones.push_back(cone1);
+
 	}
 
 	void render(std::vector<vec4>& image) {
 		for (int Y = 0; Y < windowHeight; Y++) {
-#pragma omp parallel for
+//#pragma omp parallel for
 			for (int X = 0; X < windowWidth; X++) {
 				vec3 color = trace(camera.getRay(X, Y));
 				image[Y * windowWidth + X] = vec4(color.x, color.y, color.z, 1);
@@ -472,7 +483,19 @@ public:
 		Hit firstHit = firstIntersect(ray);
 		if (firstHit.t > 0) {
 			float L = 0.2 * (1 + dot(normalize(firstHit.normal), -1 * normalize(ray.dir)));
-			return vec3(L, L, L);
+			vec3 colour = vec3(L, L, L);
+			for (Cone* lehallgato : cones) {
+				
+				Ray seekray = Ray(firstHit.position, normalize((lehallgato->point + lehallgato->norm * epsilon) - firstHit.position));
+				Hit refractionhit = firstIntersect(seekray);
+
+				if (length(refractionhit.position - (lehallgato->point + lehallgato->norm * epsilon)) < epsilon) {
+					colour = colour + lehallgato->color;
+				}
+				
+				
+			}
+			return colour;
 		}
 		else {
 			return La;
