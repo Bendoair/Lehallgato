@@ -92,7 +92,7 @@ struct Cone :Intersectable{
 				t = x2;
 			}
 			vec3 r = ray.start + ray.dir * t;
-			vec3 hitnormal = 2 * (dot((r-point),norm))*norm - ( 2 * (r - point)*pow(cosf(alpha), 2));
+			vec3 hitnormal = normalize(2 * (dot((r-point),norm))*norm - ( 2 * (r - point)*pow(cosf(alpha), 2)));
 
 			hit.material = material;
 			hit.normal = hitnormal; //correct? pls
@@ -108,7 +108,7 @@ struct Cone :Intersectable{
 			t = x1>x2?x1:x2;
 			
 			vec3 r = ray.start + ray.dir * t;
-			vec3 hitnormal = 2 * (dot((r - point), norm)) * norm - (2 * (r - point) * pow(cosf(alpha), 2));
+			vec3 hitnormal = normalize( 2 * (dot((r - point), norm)) * norm - (2 * (r - point) * pow(cosf(alpha), 2)) );
 
 			hit.material = material;
 			hit.normal = hitnormal; //correct? pls
@@ -153,11 +153,11 @@ struct Triangle :Intersectable {
 				return hit;
 			}
 		}
-		else {
+		/*else {
 			if (dot(ray.dir, norm) > 0) {
 				return hit;
 			}
-		}
+		}*/
 		float t = dot((r1 - ray.start), norm) / dot(ray.dir, norm);
 		vec3 p = ray.start + ray.dir * t;
 		if (dot(cross((r2 - r1), (p - r1)), norm) > 0
@@ -165,7 +165,7 @@ struct Triangle :Intersectable {
 			&& dot(cross((r1 - r3), (p - r3)), norm) > 0) {
 			//printf("lefutott a triangle if \n");
 			hit.position = p;
-			hit.normal = norm;
+			hit.normal = normalize(norm);
 			hit.material = material;
 			hit.t = t;
 		}
@@ -376,7 +376,7 @@ f  19  12  11)";
 
 
 class Camera {
-	
+
 public:
 	vec3 eye, lookat, right, up;
 	void set(vec3 _eye, vec3 _lookat, vec3 vup, float fov = 45 * M_PI / 180) {
@@ -391,7 +391,7 @@ public:
 		vec3 dir = lookat + right * (2.0f * (X + 0.5f) / windowWidth - 1) + up * (2.0f * (Y + 0.5f) / windowHeight - 1) - eye;
 		return Ray(eye, dir);
 	}
-	
+
 	void Animate(float dt) {
 		eye = vec3((eye.x - lookat.x) * cos(dt) + (eye.z - lookat.z) * sin(dt) + lookat.x,
 			eye.y,
@@ -422,7 +422,7 @@ public:
 	vec3 La;
 
 	void build() {
-		vec3 eye = vec3(3, 2 , .5), vup = vec3(0, 0, 1), lookat = vec3(0, 0, .5);
+		vec3 eye = vec3(3, 2, .5), vup = vec3(0, 0, 1), lookat = vec3(0, 0, .5);
 		float fov = 45 * M_PI / 180;
 		camera.set(eye, lookat, vup, fov);
 
@@ -447,10 +447,28 @@ public:
 		TriObject* Dca = TriObject::getObject(DodecaObjFile, 0.2, false, vec3(0.2, 0.7, 0.2));
 		objects.push_back(Dca);
 
-		Cone* cone1 = new Cone(vec3(0.5, 0.0, 0.2), vec3(0, 1, 0), 0.2, M_PI / 8, vec3(1,0,0));
+		Cone* cone1 = new Cone(vec3(0.5, 0.0, 0.2), vec3(0, 1, 0), 0.2, M_PI / 8, vec3(1, 0, 0));
 		objects.push_back(cone1);
 		cones.push_back(cone1);
 
+	}
+
+
+
+	void resetCone(int pX, int pY) {
+		Ray pointer = camera.getRay(pX, pY);
+		Hit newPoint = firstIntersect(pointer);
+		//pls dont click on any of the cones
+		Cone* closest = cones[0];
+		for (Cone* coneElement : cones) {
+			if (length((coneElement->point) - newPoint.position) < length((closest->point) - newPoint.position)){
+				closest = coneElement;
+			}
+		}
+		closest->point = newPoint.position;
+		closest->norm = newPoint.normal;
+		printf("cone reset, new pos(x,y,z) = pos(%f,%f,%f)\n", closest->point.x, closest->point.y, closest->point.z);
+		
 	}
 
 	void render(std::vector<vec4>& image) {
@@ -484,17 +502,23 @@ public:
 		if (firstHit.t > 0) {
 			float L = 0.2 * (1 + dot(normalize(firstHit.normal), -1 * normalize(ray.dir)));
 			vec3 colour = vec3(L, L, L);
-			for (Cone* lehallgato : cones) {
-				
-				Ray seekray = Ray(firstHit.position, normalize((lehallgato->point + lehallgato->norm * epsilon) - firstHit.position));
-				Hit refractionhit = firstIntersect(seekray);
+			//for (Cone* lehallgato : cones) {
+			//	
+			//	vec3 deltaHallgato = (lehallgato->point + lehallgato->norm * 0.05);
+			//	vec3 deltaHitPos = firstHit.position + firstHit.normal * 0.0005;
+			//	Ray seekray = Ray(firstHit.position, normalize((deltaHitPos-deltaHallgato )));
+			//	Hit refractionhit = firstIntersect(seekray);
+			//	/*
+			//	if (length(refractionhit.position - deltaHallgato) > 0.05) {
+			//		colour = colour + lehallgato->color;
+			//	}*/
 
-				if (length(refractionhit.position - (lehallgato->point + lehallgato->norm * epsilon)) < epsilon) {
-					colour = colour + lehallgato->color;
-				}
-				
-				
-			}
+			//	if (length(refractionhit.position - deltaHitPos) > length(deltaHallgato - deltaHitPos)) {
+			//		colour = colour + lehallgato->color;
+			//	}
+			//	
+			//	
+			//}
 			return colour;
 		}
 		else {
@@ -613,10 +637,16 @@ void onKeyboardUp(unsigned char key, int pX, int pY) {
 
 // Mouse click event
 void onMouse(int button, int state, int pX, int pY) {
+	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+		scene.resetCone(pX, pY);
+		glutPostRedisplay();
+		onDisplay();
+	}
 }
 
 // Move mouse with key pressed
 void onMouseMotion(int pX, int pY) {
+	
 }
 
 // Idle event indicating that some time elapsed: do animation here
