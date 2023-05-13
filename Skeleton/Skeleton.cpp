@@ -149,11 +149,11 @@ struct Triangle :Intersectable {
 				return hit;
 			}
 		}
-		else {
+		/*else {
 			if (dot(ray.dir, norm) > 0) {
 				return hit;
 			}
-		}
+		}*/
 		float t = dot((r1 - ray.start), norm) / dot(ray.dir, norm);
 		vec3 p = ray.start + ray.dir * t;
 		if (dot(cross((r2 - r1), (p - r1)), norm) > 0
@@ -417,7 +417,7 @@ public:
 	vec3 La;
 
 	void build() {
-		vec3 eye = vec3(3, 2, .5), vup = vec3(0, 0, 1), lookat = vec3(0, 0, .5);
+		vec3 eye = vec3(2, 2.2, .7), vup = vec3(0, 0, 1), lookat = vec3(0, 0, .5);
 		float fov = 45 * M_PI / 180;
 		camera.set(eye, lookat, vup, fov);
 
@@ -437,20 +437,20 @@ public:
 		vec3 v8 = vec3(1.0f, 1.0f, 1.0f);
 		Cube* cub = new Cube(v1, v2, v3, v4, v5, v6, v7, v8, material);
 		objects.push_back(cub);
-		TriObject* Ica = TriObject::getObject(IcosaObjFile, 0.15, false, vec3(0.8, 0.7, 0.15));
+		TriObject* Ica = TriObject::getObject(IcosaObjFile, 0.22, false, vec3(0.8, 0.7, 0.15));
 		objects.push_back(Ica);
-		TriObject* Dca = TriObject::getObject(DodecaObjFile, 0.2, false, vec3(0.2, 0.7, 0.2));
+		TriObject* Dca = TriObject::getObject(DodecaObjFile, 0.25, false, vec3(0.2, 0.3, 0.2));
 		objects.push_back(Dca);
 
-		Cone* cone1 = new Cone(vec3(0.5, 0.0, 0.2), vec3(0, 1, 0), 0.2, M_PI / 8, vec3(1, 0, 0));
+		Cone* cone1 = new Cone(vec3(0.5, 0.0, 0.2), vec3(0, 1, 0), 0.1, M_PI / 8, vec3(1, 0, 0));
 		objects.push_back(cone1);
 		cones.push_back(cone1);
 		
-		Cone* cone2 = new Cone(vec3(0.5, 0.7, 1), vec3(0, 0, -1), 0.2, M_PI / 8, vec3(0, 1, 0));
+		Cone* cone2 = new Cone(vec3(0.000000, 0.875159, 0.077750), vec3(1, 0, 0), 0.1, M_PI / 8, vec3(0, 1, 0));
 		objects.push_back(cone2);
 		cones.push_back(cone2);
-		
-		Cone* cone3 = new Cone(vec3(0.0, 0.5, 0.2), vec3(1, 0, 0), 0.2, M_PI / 8, vec3(0, 0, 1));
+		//vec3(0.000000, 0.829906, 0.437936), vec3(1, 0, 0),
+		Cone* cone3 = new Cone(vec3(0.5, 0.7, 1), vec3(0, 0, -1), 0.1, M_PI / 8, vec3(0, 0, 1));
 		objects.push_back(cone3);
 		cones.push_back(cone3);
 
@@ -499,6 +499,10 @@ public:
 		return false;
 	}
 
+	bool aboutEQ(vec3 a, vec3 b) {
+		return length(a - b) < 0.05;
+	}
+
 	vec3 trace(Ray ray, int depth = 0) {
 		//Original deleted, can be found in the 'minimal raytracing program'
 		Hit firstHit = firstIntersect(ray);
@@ -515,8 +519,9 @@ public:
 				/*if (length(refractionhit.position - deltaHallgato) < 0.05) {
 					colour = colour + lehallgato->color;
 				}*/
-				if (length(refractionhit.position - deltaHitPos) < refractionhit.t
-					&& dot(firstHit.normal, seekray.dir) < 0) {
+				if (length(deltaHitPos-refractionhit.position ) < refractionhit.t
+					&& dot(firstHit.normal, seekray.dir) < 0
+					&& aboutEQ(deltaHitPos, refractionhit.position)) {
 					float elhal = 1 - (refractionhit.t/1.5);
 					elhal = elhal < 0 ? 0 : elhal;
 					colour = colour + lehallgato->color*(elhal);
