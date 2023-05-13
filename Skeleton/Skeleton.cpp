@@ -96,9 +96,7 @@ struct Cone :Intersectable{
 
 			hit.material = material;
 			hit.normal = hitnormal; //correct? pls
-			if (dot(hitnormal, ray.dir) > 0) {
-				hit.normal = hit.normal * (-1);
-			}
+			
 			hit.position = r;
 			if (dot((hit.position - point), norm) >= 0 && dot((hit.position - point), norm) <= height) {
 				hit.t = t;
@@ -112,9 +110,7 @@ struct Cone :Intersectable{
 
 			hit.material = material;
 			hit.normal = hitnormal; //correct? pls
-			if (dot(hitnormal, ray.dir) > 0) {
-				hit.normal = hit.normal * (-1);
-			}
+			
 			hit.position = r;
 			if (dot((hit.position - point), norm) >= 0 && dot((hit.position - point), norm) <= height) {
 				hit.t = t;
@@ -129,9 +125,9 @@ struct Cone :Intersectable{
 struct Triangle :Intersectable {
 	vec3 r1, r2, r3;
 	vec3 norm;
-	boolean reverse;
+	bool reverse;
 
-	Triangle(vec3 ia, vec3 ib, vec3 ic, Material* mat = new Material(vec3(0.3f, 0.2f, 0.1f), vec3(2, 2, 2), 50), boolean _reverse = false) {
+	Triangle(vec3 ia, vec3 ib, vec3 ic, Material* mat = new Material(vec3(0.3f, 0.2f, 0.1f), vec3(2, 2, 2), 50), bool _reverse = false) {
 		r1 = ia; r2 = ib; r3 = ic;
 		norm = normalize(cross((r2 - r1), (r3 - r1)));
 		reverse = _reverse;
@@ -153,17 +149,16 @@ struct Triangle :Intersectable {
 				return hit;
 			}
 		}
-		/*else {
+		else {
 			if (dot(ray.dir, norm) > 0) {
 				return hit;
 			}
-		}*/
+		}
 		float t = dot((r1 - ray.start), norm) / dot(ray.dir, norm);
 		vec3 p = ray.start + ray.dir * t;
 		if (dot(cross((r2 - r1), (p - r1)), norm) > 0
 			&& dot(cross((r3 - r2), (p - r2)), norm) > 0
 			&& dot(cross((r1 - r3), (p - r3)), norm) > 0) {
-			//printf("lefutott a triangle if \n");
 			hit.position = p;
 			hit.normal = normalize(norm);
 			hit.material = material;
@@ -229,7 +224,7 @@ struct TriObject :Intersectable {
 	std::vector<Triangle> sides;
 	
 	TriObject(std::vector<vec3> const vertices, std::vector<vec3> const sideurs, 
-		float ratio, boolean reverse, vec3 offset = vec3(0.0, 0.0, 0.0)) {
+		float ratio, bool reverse, vec3 offset = vec3(0.0, 0.0, 0.0)) {
 		for (vec3 siddefs : sideurs) {
 			sides.push_back(Triangle(
 				vertices[(int)siddefs.x]*ratio + offset, 
@@ -249,7 +244,7 @@ struct TriObject :Intersectable {
 		return hit;
 		
 	}
-	static TriObject* getObject(std::string const objFile, float ratio, boolean reverse, vec3 offset = vec3(0.0, 0.0, 0.0)) {
+	static TriObject* getObject(std::string const objFile, float ratio, bool reverse, vec3 offset = vec3(0.0, 0.0, 0.0)) {
 		std::vector<std::string> lines;
 		std::string currLine;
 		for (int i = 0; i < objFile.size(); i++) {
@@ -450,6 +445,14 @@ public:
 		Cone* cone1 = new Cone(vec3(0.5, 0.0, 0.2), vec3(0, 1, 0), 0.2, M_PI / 8, vec3(1, 0, 0));
 		objects.push_back(cone1);
 		cones.push_back(cone1);
+		
+		Cone* cone2 = new Cone(vec3(0.5, 0.7, 1), vec3(0, 0, -1), 0.2, M_PI / 8, vec3(0, 1, 0));
+		objects.push_back(cone2);
+		cones.push_back(cone2);
+		
+		Cone* cone3 = new Cone(vec3(0.0, 0.5, 0.2), vec3(1, 0, 0), 0.2, M_PI / 8, vec3(0, 0, 1));
+		objects.push_back(cone3);
+		cones.push_back(cone3);
 
 	}
 
@@ -473,7 +476,7 @@ public:
 
 	void render(std::vector<vec4>& image) {
 		for (int Y = 0; Y < windowHeight; Y++) {
-//#pragma omp parallel for
+#pragma omp parallel for
 			for (int X = 0; X < windowWidth; X++) {
 				vec3 color = trace(camera.getRay(X, Y));
 				image[Y * windowWidth + X] = vec4(color.x, color.y, color.z, 1);
@@ -502,23 +505,25 @@ public:
 		if (firstHit.t > 0) {
 			float L = 0.2 * (1 + dot(normalize(firstHit.normal), -1 * normalize(ray.dir)));
 			vec3 colour = vec3(L, L, L);
-			//for (Cone* lehallgato : cones) {
-			//	
-			//	vec3 deltaHallgato = (lehallgato->point + lehallgato->norm * 0.05);
-			//	vec3 deltaHitPos = firstHit.position + firstHit.normal * 0.0005;
-			//	Ray seekray = Ray(firstHit.position, normalize((deltaHitPos-deltaHallgato )));
-			//	Hit refractionhit = firstIntersect(seekray);
-			//	/*
-			//	if (length(refractionhit.position - deltaHallgato) > 0.05) {
-			//		colour = colour + lehallgato->color;
-			//	}*/
-
-			//	if (length(refractionhit.position - deltaHitPos) > length(deltaHallgato - deltaHitPos)) {
-			//		colour = colour + lehallgato->color;
-			//	}
-			//	
-			//	
-			//}
+			for (Cone* lehallgato : cones) {
+				
+				vec3 deltaHallgato = (lehallgato->point + lehallgato->norm * 0.005);
+				vec3 deltaHitPos = firstHit.position /*+ firstHit.normal * 0.0005*/;
+				Ray seekray = Ray(deltaHallgato, normalize((deltaHitPos-deltaHallgato )));
+				Hit refractionhit = firstIntersect(seekray);
+				
+				/*if (length(refractionhit.position - deltaHallgato) < 0.05) {
+					colour = colour + lehallgato->color;
+				}*/
+				if (length(refractionhit.position - deltaHitPos) < refractionhit.t
+					&& dot(firstHit.normal, seekray.dir) < 0) {
+					float elhal = 1 - (refractionhit.t/1.5);
+					elhal = elhal < 0 ? 0 : elhal;
+					colour = colour + lehallgato->color*(elhal);
+				}
+			
+				
+			}
 			return colour;
 		}
 		else {
@@ -638,9 +643,19 @@ void onKeyboardUp(unsigned char key, int pX, int pY) {
 // Mouse click event
 void onMouse(int button, int state, int pX, int pY) {
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-		scene.resetCone(pX, pY);
+		scene.resetCone(pX, windowHeight-pY);
+
+		std::vector<vec4> image(windowWidth * windowHeight);
+		long timeStart = glutGet(GLUT_ELAPSED_TIME);
+		scene.render(image);
+		long timeEnd = glutGet(GLUT_ELAPSED_TIME);
+		printf("Rendering time: %d milliseconds\n", (timeEnd - timeStart));
+		delete fullScreenTexturedQuad;
+		// copy image to GPU as a texture
+		fullScreenTexturedQuad = new FullScreenTexturedQuad(windowWidth, windowHeight, image);
+
+
 		glutPostRedisplay();
-		onDisplay();
 	}
 }
 
